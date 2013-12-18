@@ -30,15 +30,14 @@ class YelpSync
 	def initialize(category = "movers", debug = false)
 		@config = {
 			:host => "www.yelp.com", 
-			:search_path => "/search",
-			:debug => debug,
+			:search_path => "/search", 			:debug => debug,
 			:remaining => true,
 			:category =>category
 		}
 		@analytics = {}
 		@moverlinks = []
 		@moverlinkdata = []
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 50)
 	end
 
 	def queue(request, &block)
@@ -193,7 +192,7 @@ class HashWriter
 end
 
 syncer = YelpSync.new
-states = ['AZ']
+states = ["AK",  "AL",  "AR",  "AS",  "AZ",  "CA",  "CO",  "CT",  "DC",  "DE",  "FL",  "GA",  "GU",  "HI",  "IA",  "ID",  "IL",  "IN",  "KS",  "KY",  "LA",  "MA",  "MD",  "ME",  "MI",  "MN",  "MO",  "MP",  "MS",  "MT",  "NC",  "ND",  "NE",  "NH",  "NJ",  "NM",  "NV",  "NY",  "OH",  "OK",  "OR",  "PA",  "PR",  "RI",  "SC",  "SD",  "TN",  "TX",  "UM",  "UT",  "VA",  "VI",  "VT",  "WA",  "WI",  "WV",  "WY"]
 syncer.generate_links_by_states(states)
 syncer.run
 syncer.generate_mover_data
