@@ -2,6 +2,7 @@ require 'rubygems'
 require 'bundler/setup'
 require 'typhoeus'
 require 'nokogiri'
+require 'csv'
 
 class Object
 	def to_query(key)
