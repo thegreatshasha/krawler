@@ -3,6 +3,7 @@ require 'bundler/setup'
 require 'typhoeus'
 require 'nokogiri'
 require 'csv'
+require 'benchmark'
 
 class Object
 	def to_query(key)
@@ -37,7 +38,7 @@ class YelpSync
 		@analytics = {}
 		@moverlinks = []
 		@moverlinkdata = []
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 	end
 
 	def queue(request, &block)
@@ -47,7 +48,9 @@ class YelpSync
 
 	def run
 		puts "Hydra Sync Running"
-		self.hydra.run
+
+		puts Benchmark.measure { self.hydra.run }
+		
 		puts "Hydra Sync Finished running"
 	end
 
