@@ -33,12 +33,17 @@ class YelpSync
 			:search_path => "/search", 			
 			:debug => false,
 			:remaining => true,
-			:category =>category
+			:category =>category,
+			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"}
 		}
 		@analytics = {}
 		@moverlinks = []
 		@moverlinkdata = []
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 50)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
+	end
+
+	def request(url)
+		Typhoeus::Request.new(url, followlocation: true, headers: config[:headers])
 	end
 
 	def queue(request, &block)
@@ -76,7 +81,7 @@ class YelpSync
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
 			puts "Searching", search_string if self.config[:debug]
-			request = Typhoeus::Request.new(search_string, followlocation: true)
+			request = self.request(search_string)
 			
 			puts "Parsing state", state if self.config[:debug]
 
@@ -88,7 +93,7 @@ class YelpSync
 				pagination_links.each do |link|
 					
 					# write them down in the queue
-					newreq = Typhoeus::Request.new(link, followlocation: true)
+					newreq = self.request(link)
 
 					self.queue(newreq) { |bizdoc|
 						
@@ -102,7 +107,7 @@ class YelpSync
 
 	def generate_mover_data
 		self.moverlinks.each do |mover_profile_link|
-			request = Typhoeus::Request.new(mover_profile_link, followlocation: true)
+			request = self.request(mover_profile_link)
 			
 			self.queue(request) { |doc|
 				moverdata = self.parse_mover_profile(doc)
