@@ -1,8 +1,15 @@
-reload!
 require 'rubygems'
 require 'bundler/setup'
 require 'typhoeus'
 require 'nokogiri'
+
+class Hash
+	def to_query(namespace = nil)
+	    collect do |key, value|
+	      value.to_query(namespace ? "#{namespace}[#{key}]" : key)
+	    end.sort * '&'
+  	end
+end
 
 class YelpSync
 	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverlinkdata
@@ -170,7 +177,7 @@ class HashWriter
 end
 
 syncer = YelpSync.new
-states = State.all[2..2].map {|state| state.code}
+states = ['AZ']
 syncer.generate_links_by_states(states)
 syncer.run
 syncer.generate_mover_data
