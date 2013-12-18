@@ -30,7 +30,8 @@ class YelpSync
 	def initialize(category = "movers", debug = false)
 		@config = {
 			:host => "www.yelp.com", 
-			:search_path => "/search", 			:debug => true,
+			:search_path => "/search", 			
+			:debug => false,
 			:remaining => true,
 			:category =>category
 		}
