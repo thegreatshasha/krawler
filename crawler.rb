@@ -3,12 +3,19 @@ require 'bundler/setup'
 require 'typhoeus'
 require 'nokogiri'
 
+class Object
+	def to_query(key)
+    require 'cgi' unless defined?(CGI) && defined?(CGI::escape)
+    "#{CGI.escape(key.to_param)}=#{CGI.escape(to_param.to_s)}"
+  end
+end
+
 class Hash
 	def to_query(namespace = nil)
-	    collect do |key, value|
-	      value.to_query(namespace ? "#{namespace}[#{key}]" : key)
-	    end.sort * '&'
-  	end
+		collect do |key, value|
+			value.to_query(namespace ? "#{namespace}[#{key}]" : key)
+		end.sort * '&'
+  end
 end
 
 class YelpSync
