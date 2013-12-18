@@ -30,7 +30,7 @@ class YelpSync
 	def initialize(category = "movers", debug = false)
 		@config = {
 			:host => "www.yelp.com", 
-			:search_path => "/search", 			:debug => debug,
+			:search_path => "/search", 			:debug => true,
 			:remaining => true,
 			:category =>category
 		}
@@ -147,18 +147,21 @@ class YelpSync
 	end
 
 	def generate_pagination_links(doc, searchparams)
-		string = doc.css(".pagination-results-window").children.text
-		matches = string.match(/(\d+)-(\d+).+ (\d+)/)
-		diff = matches[2].to_i - matches[1].to_i + 1
-		total = matches[3].to_i
-		number = total/diff
 		links = []
+		string = doc.css(".pagination-results-window").children.text
 		
-		number.times do |index|
-			searchparams[:start] = (index + 1) * diff
-			link = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
-			links << link
-			puts link if config[:debug]
+		unless string.empty?
+			matches = string.match(/(\d+)-(\d+).+ (\d+)/)
+			diff = matches[2].to_i - matches[1].to_i + 1
+			total = matches[3].to_i
+			number = total/diff
+		
+			number.times do |index|
+				searchparams[:start] = (index + 1) * diff
+				link = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
+				links << link
+				puts link if config[:debug]
+			end
 		end
 
 		links
