@@ -1,13 +1,18 @@
 reload!
+require 'rubygems'
+require 'bundler/setup'
+require 'typhoeus'
+require 'nokogiri'
 
 class YelpSync
 	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverlinkdata
 
-	def initialize
+	def initialize(category = "movers", debug = false)
 		@config = {
 			:host => "www.yelp.com", 
 			:search_path => "/search",
-			:debug => true
+			:debug => debug,
+			:category =>category
 		}
 		@analytics = {}
 		@moverlinks = []
@@ -44,7 +49,7 @@ class YelpSync
 	
 	def generate_links_by_states(states)
 		states.each do |state|
-			searchparams = {find_desc: "movers", find_loc: state.code}
+			searchparams = {find_desc: config[:category], find_loc: state}
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
 			puts "Searching", search_string if self.config[:debug]
@@ -59,7 +64,7 @@ class YelpSync
 				#pagination_links = pagination_links[0..1]
 				pagination_links.each do |link|
 					
-					# write them down in the redid queue
+					# write them down in the queue
 					newreq = Typhoeus::Request.new(link, followlocation: true)
 
 					self.queue(newreq) { |bizdoc|
@@ -75,6 +80,7 @@ class YelpSync
 	def generate_mover_data
 		self.moverlinks.each do |mover_profile_link|
 			request = Typhoeus::Request.new(mover_profile_link, followlocation: true)
+			
 			self.queue(request) { |doc|
 				moverdata = self.parse_mover_profile(doc)
 				self.moverlinkdata << moverdata
@@ -84,11 +90,12 @@ class YelpSync
 
 	def parse_mover_profile(doc)
 		moverdata = {
-			name: doc.css("h1").text,
-			address: doc.css("address").text,
+			name: doc.css("h1").text.sub("\n", "").strip,
 			phone: doc.css("[itemprop='telephone']").text,
-			numberofreviews: doc.css("[itemprop='reviewCount']").text,
+			address: doc.css("address").text.sub("\n", "").strip,
+			numofreviews: doc.css("[itemprop='reviewCount']").text,
 			homepage: doc.css("#bizUrl a").text,
+			address: doc.css("address").text.sub("\n", "").strip,
 			acceptscreditcards: doc.css(".attr-BusinessAcceptsCreditCards").text,
 			hours: doc.css(".hours").text,
 		}
@@ -136,9 +143,6 @@ class YelpSync
 
 	end
 
-	def add_mover_link
-	end
-
 end
 
 class HashWriter
@@ -146,6 +150,9 @@ class HashWriter
 	
 	def initialize(file = "data.csv")
 		@file = file
+		@config = {
+			debug: false
+		}
 	end
 
 	def write(hashes)
@@ -163,7 +170,7 @@ class HashWriter
 end
 
 syncer = YelpSync.new
-states = State.all[2..2]
+states = State.all[2..2].map {|state| state.code}
 syncer.generate_links_by_states(states)
 syncer.run
 syncer.generate_mover_data
@@ -171,4 +178,3 @@ syncer.run
 
 hw = HashWriter.new
 hw.write(syncer.moverlinkdata)
-
