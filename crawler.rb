@@ -31,6 +31,7 @@ class YelpSync
 			:host => "www.yelp.com", 
 			:search_path => "/search",
 			:debug => debug,
+			:remaining => true,
 			:category =>category
 		}
 		@analytics = {}
@@ -130,7 +131,7 @@ class YelpSync
 	def parse_page(response, &block)
 		html = response.body
 		doc = Nokogiri::HTML(html)
-		puts self.hydra.queued_requests.length, "Requests Remaining\n" if self.config[:debug]
+		puts self.hydra.queued_requests.length, "Requests Remaining\n" if self.config[:remaining]
 		yield doc
 	end
 
