@@ -25,21 +25,33 @@ class Hash
 end
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverlinkdata
+	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverdata, :moverlinkscache, :moverdatacache
 
 	def initialize(category = "movers", debug = false)
 		@config = {
 			:host => "www.yelp.com", 
 			:search_path => "/search", 			
-			:debug => false,
+			:debug => true,
 			:remaining => true,
 			:category =>category,
-			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"}
+			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"},
+			:strategy => {type: "slow", delay: 7.0}
 		}
 		@analytics = {}
 		@moverlinks = []
-		@moverlinkdata = []
+		@moverlinkswriter = Writer.new("moverlinks.csv")
+		
+		@moverdata = []
+		@moverdatawriter = Writer.new("moverdata.csv")
+		
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 1)
+	end
+
+	def delay_request
+		if self.config[:strategy][:type] == "slow"
+			puts "Delaying " + config[:strategy][:delay].to_s + " before adding another request in queue \n" if self.config[:debug]
+			sleep(config[:strategy][:delay])
+		end
 	end
 
 	def request(url)
@@ -48,13 +60,25 @@ class YelpSync
 
 	def queue(request, &block)
 		request.on_complete {|response| self.handle_response(response, &block)}
+		
 		self.hydra.queue(request)
 	end
 
 	def run
 		puts "Hydra Sync Running"
 
-		puts Benchmark.measure { self.hydra.run }
+		puts Benchmark.measure { 
+			while self.hydra.queued_requests.length > 0
+				puts "\nInside requests" if self.config[:debug]
+				req = self.hydra.queued_requests.pop
+				puts req, self.hydra.queued_requests.length
+				
+				self.delay_request
+
+				puts "\nProcessing, ", req.url if self.config[:debug]
+				req.run
+			end
+		}
 		
 		puts "Hydra Sync Finished running"
 	end
@@ -80,10 +104,10 @@ class YelpSync
 			searchparams = {find_desc: config[:category], find_loc: state}
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
-			puts "Searching", search_string if self.config[:debug]
+			puts "\nAdding", search_string if self.config[:debug]
 			request = self.request(search_string)
 			
-			puts "Parsing state", state if self.config[:debug]
+			puts "Adding callback for state", state if self.config[:debug]
 
 			self.queue(request) { |doc|
 				pagination_links = self.generate_pagination_links(doc, searchparams)
@@ -111,12 +135,14 @@ class YelpSync
 			
 			self.queue(request) { |doc|
 				moverdata = self.parse_mover_profile(doc)
-				self.moverlinkdata << moverdata
+				self.moverdata << moverdata
 			}
 		end
 	end
 
 	def parse_mover_profile(doc)
+		puts "Parsing mover profile data" if self.config[:debug]
+
 		moverdata = {
 			name: doc.css("h1").text.sub("\n", "").strip,
 			phone: doc.css("[itemprop='telephone']").text,
@@ -133,6 +159,9 @@ class YelpSync
 		rescue
 			moverdata[:rating] = ""
 		end
+
+		moverdatawriter.write_hash(moverdata)
+
 		return moverdata
 	end
 
@@ -144,12 +173,14 @@ class YelpSync
 	end
 
 	def parse_moverlinks(doc)
-		biz_links = doc.css("a.biz-name[href^='/biz']")
+		puts "Parsing moverlinks from html" if self.config[:debug]
 		
-		biz_links.each do |biz|
-			puts "Link is", biz['href'], "\n" if self.config[:debug]
-			self.moverlinks << self.config[:host] + biz['href']
-		end
+		biz_links = doc.css("a.biz-name[href^='/biz']")
+		links = biz_links.map {|link| self.config[:host] + link['href'] }
+
+		moverlinkswriter.write_array(["p", "p"])
+		
+		self.moverlinks.concat(links)
 	end
 
 	def generate_pagination_links(doc, searchparams)
@@ -176,27 +207,45 @@ class YelpSync
 
 end
 
-class HashWriter
+class Writer
 	attr_accessor :file
 	
 	def initialize(file = "data.csv")
-		@file = file
+		@file = File.open(file, "wb")
+		@file.sync = true
 		@config = {
 			debug: false
 		}
 	end
 
-	def write(hashes)
-		column_names = hashes.first.keys
+	def write_array(array)
+		s = CSV.generate do |csv|
+					array.each do |item|
+						csv << [item]
+					end
+				end
+		
+		self.file.write(s)
+	end
 
-		s=CSV.generate do |csv|
-		  csv << column_names
-		  hashes.each do |x|
-		    csv << x.values
-		  end
-		end
+	def write_hash(hash)
+		s = CSV.generate do |csv|
+		  		csv << hash.values
+				end
+		self.file.write(s)
+	end
 
-		File.write(self.file, s)
+	def write_hashes(hashes)
+		#column_names = hashes.first.keys
+
+		s = CSV.generate do |csv|
+		  		#csv << column_names
+		  		hashes.each do |x|
+		    		csv << x.values
+		  		end
+				end
+
+		self.file.write(s)
 	end
 end
 
@@ -207,5 +256,5 @@ syncer.run
 syncer.generate_mover_data
 syncer.run
 
-hw = HashWriter.new
-hw.write(syncer.moverlinkdata)
+#hw = Writer.new
+#hw.write(syncer.moverdata)
