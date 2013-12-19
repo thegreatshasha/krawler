@@ -31,7 +31,7 @@ class YelpSync
 		@config = {
 			:host => "www.yelp.com", 
 			:search_path => "/search", 			
-			:debug => true,
+			:debug => false,
 			:remaining => true,
 			:category =>category,
 			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"},
