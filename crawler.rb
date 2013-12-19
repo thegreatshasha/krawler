@@ -39,7 +39,7 @@ class YelpSync
 		@analytics = {}
 		@moverlinks = []
 		@moverlinkdata = []
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 1)
 	end
 
 	def request(url)
