@@ -25,7 +25,7 @@ class Hash
 end
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverdata, :moverlinkscache, :moverdatacache
+	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverdata, :moverlinkswriter, :moverdatawriter
 
 	def initialize(category = "movers", debug = false)
 		@config = {
