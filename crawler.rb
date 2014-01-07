@@ -1,147 +1,241 @@
-require 'rubygems'
-require 'bundler/setup'
-require 'typhoeus'
-require 'nokogiri'
-require 'csv'
-require 'benchmark'
-
-class Object
-	def to_query(key)
-    require 'cgi' unless defined?(CGI) && defined?(CGI::escape)
-    "#{CGI.escape(key.to_param)}=#{CGI.escape(to_param.to_s)}"
-  end
-
-	def to_param
-    to_s
-  end
-end
-
-class Hash
-	def to_query(namespace = nil)
-		collect do |key, value|
-			value.to_query(namespace ? "#{namespace}[#{key}]" : key)
-		end.sort * '&'
-  end
-end
+require_relative 'loader.rb'
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :moverlinks, :moverdata, :moverlinkswriter, :moverdatawriter
+	attr_accessor :config, :analytics, :hydra, :moverdatawriter, :reader, :debug, :linkr, :linkw
 
-	def initialize(category = "movers", debug = false)
+	def initialize(config)
 		@config = {
-			:host => "www.yelp.com", 
+			:host => "yelp.com", 
 			:search_path => "/search", 			
-			:debug => false,
-			:remaining => true,
-			:category =>category,
+			:debug_level => config[:debug_level],
+			:cookie => {file: "cookie.txt"},
+			:category => config[:category],
 			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"},
-			:strategy => {type: "slow", delay: 7.0}
+			:strategy => {type: "parallel", delaymin: 10, delaymax: 20},#linear or parallel
 		}
+
+		@debug = DebugHelper.new(config[:debug_level])
+
 		@analytics = {}
-		@moverlinks = []
-		@moverlinkswriter = Writer.new("moverlinks.csv")
-		
-		@moverdata = []
-		@moverdatawriter = Writer.new("moverdata.csv")
-		
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 1)
+
+		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
+		@linkw = Writer.new({filename: "links.txt", mode: "w", debug_level: 1})
+
+		@moverdatawriter = Writer.new({filename: "moverdata.csv", mode: "a+"})
+
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 30)
 	end
 
+	# In case the website does not allow concurrent requests
 	def delay_request
-		if self.config[:strategy][:type] == "slow"
-			puts "Delaying " + config[:strategy][:delay].to_s + " before adding another request in queue \n" if self.config[:debug]
-			sleep(config[:strategy][:delay])
+		if config[:strategy][:type] == "linear"
+			delay = Random.rand( config[:strategy][:delaymin] .. config[:strategy][:delaymax]).to_f
+			
+			debug.print(3, "Delaying", delay, " before adding another request in queue", File.basename(__FILE__), __LINE__)
+			
+			sleep(delay)
 		end
 	end
 
+	# Generate a typhoeus request with the required options
 	def request(url)
-		Typhoeus::Request.new(url, followlocation: true, headers: config[:headers])
+		Typhoeus::Request.new(url, followlocation: true, headers: config[:headers], cookiefile: config[:cookie][:file], cookiejar: config[:cookie][:file])
 	end
 
-	def queue(request, &block)
-		request.on_complete {|response| self.handle_response(response, &block)}
+	# Read links from input file to parse
+	def read_links()
+		links = linkr.read_array()
+	end
+
+	# Add a single request to the queue
+	def queue(request)
+		#binding.pry
+		request.on_complete {|response|  handle_response(request, response)}
 		
-		self.hydra.queue(request)
+		hydra.queue(request)
 	end
 
-	def run
-		puts "Hydra Sync Running"
+	# Add multiple links to the queue
+	def queue_links(links)
+		links.each do |link|
+			req = request(link)
 
-		puts Benchmark.measure { 
-			while self.hydra.queued_requests.length > 0
-				puts "\nInside requests" if self.config[:debug]
-				req = self.hydra.queued_requests.pop
-				puts req, self.hydra.queued_requests.length
+			hydra.queue(req)
+		end
+	end
+
+	# Get the current queued links as array
+	def get_queued_links()
+		hydra.queued_requests.map do |req|
+			req.url
+		end
+	end
+
+	def write_queued_links()
+		links = get_queued_links()
+	end
+
+	# After we get a successfull response, we select what to do
+	def match_response(request, response)
+		# Instead of callbacks, i can have a url pattern check here to determine appropriate respose
+		url = request.url
+		html = response.body
+
+		if url.match(/\/search/)
+			# Pagination link found, fetch and grab links
+			if url.match(/\&start\=/)
 				
-				self.delay_request
+				mlinks = parse_moverlinks(html)
 
-				puts "\nProcessing, ", req.url if self.config[:debug]
+				# Queue the business links
+				queue_links(mlinks)
+			
+			#First time hitting search
+			else
+				searchparams = {}
+				CGI.parse(URI.parse(url).query()).map {|key, value| searchparams[key.to_sym] = value[0] }
+					
+				plinks =  pagination_links(html, searchparams)
+					
+				queue_links(plinks)
+			end
+		
+		# If business link found
+		elsif url.match(/\/biz/)
+			
+			data = parse_mover_profile(html)
+			data[:link] = mover_profile_link
+
+			# Save the moverdata to file
+			moverdatawriter.write_hash(data)
+		end
+
+		#Possible actions are pagination_links, parse_moverlinks
+				
+	end
+
+	# Abort program by writing down all the pending links to the file
+	def exit
+		debug.print(3, "Saving data to file", File.basename(__FILE__), __LINE__)
+		
+		#moverdatawriter.write_marshal_dump( fail_queue)
+		pending_links = get_queued_links()
+		linkw.write_array(pending_links)
+
+		abort
+	end
+
+	# Choose between linear or parallel strategies
+	def run
+		debug.print(4, "Hydra Sync Running", File.basename(__FILE__), __LINE__)
+		
+		debug.print(3, "strategy is",  config[:strategy][:type], File.basename(__FILE__), __LINE__)
+		debug.print(4, config[:strategy][:type].eql?("linear"), File.basename(__FILE__), __LINE__)
+
+		puts Benchmark.measure {
+			if config[:strategy][:type].eql?"linear"
+				run_linear_strategy
+			else
+				run_parallel_strategy
+			end
+
+		}
+		
+		debug.print(4, "Hydra Sync Finished running", File.basename(__FILE__), __LINE__)
+	end
+
+	# Put a random delay between requests
+	def run_linear_strategy
+		debug.print(3, "Running linear strategy", File.basename(__FILE__), __LINE__)
+		
+		while  hydra.queued_requests.length > 0
+			debug.print(1, "Inside requests", File.basename(__FILE__), __LINE__)
+
+			req =  hydra.queued_requests.pop
+			#binding.pry
+
+			debug.print(1, "\n Popped", req.url, "length is",  hydra.queued_requests.length, File.basename(__FILE__), __LINE__) 
+				#puts req,  hydra.queued_requests.length
+				
+				delay_request
+
+				debug.print(1, "\nProcessing, ", req.url, File.basename(__FILE__), __LINE__)
 				req.run
 			end
-		}
-		
-		puts "Hydra Sync Finished running"
-	end
+		end
 
-	def handle_response(response, &block)
-		if response.success?
-	    # hell yeah
-	    self.parse_page(response, &block)
-	  elsif response.timed_out?
-	    # aw hell no
-	    puts "got a time out"
-	  elsif response.code == 0
-	    # Could not get an http response, something's wrong.
-	    puts "response.return_message"
-	  else
-	    # Received a non-successful http response.
-	    puts "HTTP request failed: " + response.code.to_s
+		def run_parallel_strategy
+			debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
+			#binding.pry
+			hydra.run
+		end
+
+		def handle_response(request, response)
+			if response.success?
+			    # hell yeah
+			    match_response(request, response)
+
+	  		# The error case
+			else
+				binding.pry
+				if response.timed_out?
+				    # aw hell no
+				    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
+				  elsif response.code == 0
+				    # Could not get an http response, something's wrong.
+				    debug.print(3, "response.return_message", File.basename(__FILE__), __LINE__)
+				  else
+				    # Received a non-successful http response.
+				    debug.print(3, "HTTP request failed: " + response.code.to_s, File.basename(__FILE__), __LINE__)
+				    debug.print(2, hydra.queued_requests.length,  fail_queue.length, File.basename(__FILE__), __LINE__)
+
+				    if response.code.to_s.eql? "403"
+				    	
+				    	#fail_queue.push(request).concat(hydra.queued_requests)
+				    	
+				    	debug.print(4, "Exiting because of 403", fail_queue.length, File.basename(__FILE__), __LINE__)
+				    	
+				    	#exit
+				    end
+				  end
+
+		  fail_queue.push(request).concat( hydra.queued_requests)
+
+		  debug.print(2, "Pushed into fail_queue", request.url, "length is",  fail_queue.length, File.basename(__FILE__), __LINE__)
 		end
 	end
-	
-	def generate_links_by_states(states)
-		states.each do |state|
+
+	def write_state_links(states)
+		links = states.map do |state|
+			
 			searchparams = {find_desc: config[:category], find_loc: state}
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
-			puts "\nAdding", search_string if self.config[:debug]
-			request = self.request(search_string)
+			# Write to file
+		end
+
+		# Initial prepopulation
+		linkw.write_array(links)
+	end
+
+=begin
+	def mover_data
+		moverlinks.each do |mover_profile_link|
+			request =  request(mover_profile_link)
 			
-			puts "Adding callback for state", state if self.config[:debug]
-
-			self.queue(request) { |doc|
-				pagination_links = self.generate_pagination_links(doc, searchparams)
-				
-				self.parse_moverlinks(doc)
-				#pagination_links = pagination_links[0..1]
-				pagination_links.each do |link|
-					
-					# write them down in the queue
-					newreq = self.request(link)
-
-					self.queue(newreq) { |bizdoc|
-						
-						self.parse_moverlinks(bizdoc)
-						#puts biz_links
-					}
-				end
+			queue(request) { |doc|
+				data =  parse_mover_profile(doc)
+				data[:link] = mover_profile_link
+				moverdata << data
 			}
 		end
 	end
+=end
 
-	def generate_mover_data
-		self.moverlinks.each do |mover_profile_link|
-			request = self.request(mover_profile_link)
-			
-			self.queue(request) { |doc|
-				moverdata = self.parse_mover_profile(doc)
-				self.moverdata << moverdata
-			}
-		end
-	end
 
-	def parse_mover_profile(doc)
-		puts "Parsing mover profile data" if self.config[:debug]
+	def parse_mover_profile(html)
+		doc = dom(html)
+		debug.print(2, "Parsing mover profile data", File.basename(__FILE__), __LINE__)
 
 		moverdata = {
 			name: doc.css("h1").text.sub("\n", "").strip,
@@ -160,30 +254,30 @@ class YelpSync
 			moverdata[:rating] = ""
 		end
 
-		moverdatawriter.write_hash(moverdata)
-
 		return moverdata
 	end
 
-	def parse_page(response, &block)
-		html = response.body
+	def dom(html)
 		doc = Nokogiri::HTML(html)
-		puts self.hydra.queued_requests.length, "Requests Remaining\n" if self.config[:remaining]
-		yield doc
+		puts  hydra.queued_requests.length, "Requests Remaining\n" if  config[:remaining]
+		return doc
 	end
 
-	def parse_moverlinks(doc)
-		puts "Parsing moverlinks from html" if self.config[:debug]
+	def parse_moverlinks(html)
+		doc = dom(html)
+		
+		debug.print(2, "Parsing moverlinks from html", File.basename(__FILE__), __LINE__)
 		
 		biz_links = doc.css("a.biz-name[href^='/biz']")
-		links = biz_links.map {|link| self.config[:host] + link['href'] }
+		links = biz_links.map {|link|  config[:host] + link['href'] }
 
-		moverlinkswriter.write_array(["p", "p"])
+		moverlinkswriter.write_array(links)
 		
-		self.moverlinks.concat(links)
+		moverlinks.concat(links)
 	end
 
-	def generate_pagination_links(doc, searchparams)
+	def pagination_links(html, searchparams)
+		doc = dom(html)
 		links = []
 		string = doc.css(".pagination-results-window").children.text
 		
@@ -192,12 +286,13 @@ class YelpSync
 			diff = matches[2].to_i - matches[1].to_i + 1
 			total = matches[3].to_i
 			number = total/diff
-		
+
 			number.times do |index|
 				searchparams[:start] = (index + 1) * diff
 				link = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 				links << link
-				puts link if config[:debug]
+				#puts link if config[:debug]
+				debug.print(1, "Pagination link: ", link, File.basename(__FILE__), __LINE__)
 			end
 		end
 
@@ -207,54 +302,27 @@ class YelpSync
 
 end
 
-class Writer
-	attr_accessor :file
-	
-	def initialize(file = "data.csv")
-		@file = File.open(file, "wb")
-		@file.sync = true
-		@config = {
-			debug: false
-		}
-	end
+class Runner
+	attr_accessor :syncer
 
-	def write_array(array)
-		s = CSV.generate do |csv|
-					array.each do |item|
-						csv << [item]
-					end
-				end
+	def initialize(config)
+		@syncer = YelpSync.new({category: "movers", debug_level: 1})
+		#Phase 1
+		states = ["AK",  "AL",  "AR",  "AS",  "AZ",  "CA",  "CO",  "CT",  "DC",  "DE",  "FL",  "GA",  "GU",  "HI",  "IA",  "ID",  "IL",  "IN",  "KS",  "KY",  "LA",  "MA",  "MD",  "ME",  "MI",  "MN",  "MO",  "MP",  "MS",  "MT",  "NC",  "ND",  "NE",  "NH",  "NJ",  "NM",  "NV",  "NY",  "OH",  "OK",  "OR",  "PA",  "PR",  "RI",  "SC",  "SD",  "TN",  "TX",  "UM",  "UT",  "VA",  "VI",  "VT",  "WA",  "WI",  "WV",  "WY"]
+
+		unless config[:cache]
+			syncer.write_state_links(states)
+		end
+		links = syncer.read_links()
+		syncer.queue_links(links)
 		
-		self.file.write(s)
+		#puts "Fresh start"
+		syncer.run
+
+		puts "Finished running"
+		syncer.exit
 	end
 
-	def write_hash(hash)
-		s = CSV.generate do |csv|
-		  		csv << hash.values
-				end
-		self.file.write(s)
-	end
-
-	def write_hashes(hashes)
-		#column_names = hashes.first.keys
-
-		s = CSV.generate do |csv|
-		  		#csv << column_names
-		  		hashes.each do |x|
-		    		csv << x.values
-		  		end
-				end
-
-		self.file.write(s)
-	end
 end
 
-syncer = YelpSync.new
-states = ["AK",  "AL",  "AR",  "AS",  "AZ",  "CA",  "CO",  "CT",  "DC",  "DE",  "FL",  "GA",  "GU",  "HI",  "IA",  "ID",  "IL",  "IN",  "KS",  "KY",  "LA",  "MA",  "MD",  "ME",  "MI",  "MN",  "MO",  "MP",  "MS",  "MT",  "NC",  "ND",  "NE",  "NH",  "NJ",  "NM",  "NV",  "NY",  "OH",  "OK",  "OR",  "PA",  "PR",  "RI",  "SC",  "SD",  "TN",  "TX",  "UM",  "UT",  "VA",  "VI",  "VT",  "WA",  "WI",  "WV",  "WY"]
-syncer.generate_links_by_states(states)
-syncer.run
-syncer.generate_mover_data
-syncer.run
-
-#hw = Writer.new
-#hw.write(syncer.moverdata)
+r = Runner.new({cache: false})

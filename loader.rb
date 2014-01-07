@@ -1,0 +1,16 @@
+# Require the necessary gems
+require 'rubygems'
+require 'bundler/setup'
+require 'typhoeus'
+require 'nokogiri'
+require 'csv'
+require 'benchmark'
+
+# Require necessary files and helpers
+require_relative 'helpers/debug.rb'
+require_relative 'helpers/reader.rb'
+require_relative 'helpers/writer.rb'
+
+# Require object extensions
+require_relative 'overrides/hash.rb'
+require_relative 'overrides/object.rb'
