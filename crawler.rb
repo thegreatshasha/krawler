@@ -49,23 +49,24 @@ class YelpSync
 	# Read links from input file to parse
 	def read_links()
 		links = linkr.read_array()
-
-		initial_queue = links
 		#binding.pry
+		@initial_queue = links
+		#binding.pry
+		links
 	end
 
 	# Add a single request to the queue
 	def queue(link)
-		#binding.pry
+		##binding.pry
 		req = request(link)
-		###binding.pry
+		####binding.pry
 		req.on_complete {|res|  
-			###binding.pry
+			####binding.pry
 			handle_response(req, res)
 		}
-		##binding.pry
+		###binding.pry
 		hydra.queue(req)
-		#binding.pry
+		##binding.pry
 	end
 
 	# Add multiple links to the queue
@@ -129,11 +130,12 @@ class YelpSync
 	end
 
 	# Abort program by writing down all the pending links to the file
-	def write_pending_links(links)
+	def write_pending_links(links = nil)
 		debug.print(3, "Saving links to file", File.basename(__FILE__), __LINE__)
 		
 		#moverdatawriter.write_marshal_dump( fail_queue)
 		pending_links = links || get_unfinished_links()
+		#binding.pry
 		linkw.write_array(pending_links)
 
 	end
@@ -165,7 +167,7 @@ class YelpSync
 			debug.print(1, "Inside requests", File.basename(__FILE__), __LINE__)
 
 			req =  hydra.queued_requests.pop
-			####binding.pry
+			#####binding.pry
 
 			debug.print(1, "\n Popped", req.url, "length is",  hydra.queued_requests.length, File.basename(__FILE__), __LINE__) 
 				#puts req,  hydra.queued_requests.length
@@ -179,12 +181,12 @@ class YelpSync
 
 	def run_parallel_strategy
 		debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
-		###binding.pry
+		####binding.pry
 		hydra.run
 	end
 
 	def handle_response(req, res)
-		binding.pry
+		##binding.pry
 		if res.success?
 		    # hell yeah
 		    match_response(req, res)
@@ -193,7 +195,7 @@ class YelpSync
 
   		# The error case
 		else
-			###binding.pry
+			####binding.pry
 			if res.timed_out?
 			    # aw hell no
 			    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
@@ -338,4 +340,4 @@ class Runner
 
 end
 
-r = Runner.new({cache: false})
+r = Runner.new({cache: true})
