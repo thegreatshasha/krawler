@@ -1,7 +1,7 @@
 require_relative 'loader.rb'
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :moverdatawriter, :reader, :debug, :linkr, :linkw
+	attr_accessor :config, :analytics, :hydra, :moverdatawriter, :reader, :debug, :linkr, :linkw, :bizlinkw, :finished_queue, :initial_queue
 
 	def initialize(config)
 		@config = {
@@ -11,7 +11,7 @@ class YelpSync
 			:cookie => {file: "cookie.txt"},
 			:category => config[:category],
 			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"},
-			:strategy => {type: "parallel", delaymin: 10, delaymax: 20},#linear or parallel
+			:strategy => {type: "parallel", delaymin: 1, delaymax: 5},#linear or parallel
 		}
 
 		@debug = DebugHelper.new(config[:debug_level])
@@ -20,10 +20,14 @@ class YelpSync
 
 		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
 		@linkw = Writer.new({filename: "links.txt", mode: "w", debug_level: 1})
+		@bizlinkw = Writer.new({filename: "moverlinks.txt", mode: "a+", debug_level: 1})
 
 		@moverdatawriter = Writer.new({filename: "moverdata.csv", mode: "a+"})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 30)
+
+		@finished_queue = []
+		@initial_queue = []
 	end
 
 	# In case the website does not allow concurrent requests
@@ -45,22 +49,29 @@ class YelpSync
 	# Read links from input file to parse
 	def read_links()
 		links = linkr.read_array()
+
+		initial_queue = links
+		#binding.pry
 	end
 
 	# Add a single request to the queue
-	def queue(request)
+	def queue(link)
 		#binding.pry
-		request.on_complete {|response|  handle_response(request, response)}
-		
-		hydra.queue(request)
+		req = request(link)
+		###binding.pry
+		req.on_complete {|res|  
+			###binding.pry
+			handle_response(req, res)
+		}
+		##binding.pry
+		hydra.queue(req)
+		#binding.pry
 	end
 
 	# Add multiple links to the queue
 	def queue_links(links)
 		links.each do |link|
-			req = request(link)
-
-			hydra.queue(req)
+			queue(link)
 		end
 	end
 
@@ -71,15 +82,15 @@ class YelpSync
 		end
 	end
 
-	def write_queued_links()
-		links = get_queued_links()
+	def get_unfinished_links()
+		initial_queue - finished_queue
 	end
 
 	# After we get a successfull response, we select what to do
-	def match_response(request, response)
+	def match_response(req, res)
 		# Instead of callbacks, i can have a url pattern check here to determine appropriate respose
-		url = request.url
-		html = response.body
+		url = req.url
+		html = res.body
 
 		if url.match(/\/search/)
 			# Pagination link found, fetch and grab links
@@ -87,8 +98,11 @@ class YelpSync
 				
 				mlinks = parse_moverlinks(html)
 
+				bizlinkw.write_array(mlinks)
+
 				# Queue the business links
-				queue_links(mlinks)
+				#Uncomment after replacing these links by webcache links
+				#queue_links(mlinks)
 			
 			#First time hitting search
 			else
@@ -104,7 +118,7 @@ class YelpSync
 		elsif url.match(/\/biz/)
 			
 			data = parse_mover_profile(html)
-			data[:link] = mover_profile_link
+			data[:link] = url
 
 			# Save the moverdata to file
 			moverdatawriter.write_hash(data)
@@ -115,14 +129,13 @@ class YelpSync
 	end
 
 	# Abort program by writing down all the pending links to the file
-	def exit
-		debug.print(3, "Saving data to file", File.basename(__FILE__), __LINE__)
+	def write_pending_links(links)
+		debug.print(3, "Saving links to file", File.basename(__FILE__), __LINE__)
 		
 		#moverdatawriter.write_marshal_dump( fail_queue)
-		pending_links = get_queued_links()
+		pending_links = links || get_unfinished_links()
 		linkw.write_array(pending_links)
 
-		abort
 	end
 
 	# Choose between linear or parallel strategies
@@ -152,7 +165,7 @@ class YelpSync
 			debug.print(1, "Inside requests", File.basename(__FILE__), __LINE__)
 
 			req =  hydra.queued_requests.pop
-			#binding.pry
+			####binding.pry
 
 			debug.print(1, "\n Popped", req.url, "length is",  hydra.queued_requests.length, File.basename(__FILE__), __LINE__) 
 				#puts req,  hydra.queued_requests.length
@@ -164,44 +177,44 @@ class YelpSync
 			end
 		end
 
-		def run_parallel_strategy
-			debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
-			#binding.pry
-			hydra.run
-		end
+	def run_parallel_strategy
+		debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
+		###binding.pry
+		hydra.run
+	end
 
-		def handle_response(request, response)
-			if response.success?
-			    # hell yeah
-			    match_response(request, response)
+	def handle_response(req, res)
+		binding.pry
+		if res.success?
+		    # hell yeah
+		    match_response(req, res)
 
-	  		# The error case
+		    finished_queue << req.url
+
+  		# The error case
+		else
+			###binding.pry
+			if res.timed_out?
+			    # aw hell no
+			    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
+			elsif res.code == 0
+			    # Could not get an http response, something's wrong.
+			    debug.print(3, "response.return_message", File.basename(__FILE__), __LINE__)
 			else
-				binding.pry
-				if response.timed_out?
-				    # aw hell no
-				    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
-				  elsif response.code == 0
-				    # Could not get an http response, something's wrong.
-				    debug.print(3, "response.return_message", File.basename(__FILE__), __LINE__)
-				  else
-				    # Received a non-successful http response.
-				    debug.print(3, "HTTP request failed: " + response.code.to_s, File.basename(__FILE__), __LINE__)
-				    debug.print(2, hydra.queued_requests.length,  fail_queue.length, File.basename(__FILE__), __LINE__)
+			    # Received a non-successful http response.
+			    debug.print(3, "HTTP request failed: " + res.code.to_s, File.basename(__FILE__), __LINE__)
+			    debug.print(2, hydra.queued_requests.length,  File.basename(__FILE__), __LINE__)
 
-				    if response.code.to_s.eql? "403"
-				    	
-				    	#fail_queue.push(request).concat(hydra.queued_requests)
-				    	
-				    	debug.print(4, "Exiting because of 403", fail_queue.length, File.basename(__FILE__), __LINE__)
-				    	
-				    	#exit
-				    end
-				  end
+			    if res.code.to_s.eql? "403"
+			    	
+			    	debug.print(4, "Exiting because of 403", File.basename(__FILE__), __LINE__)
+			    	
+					write_pending_links()
+			    	#exit
+			    	abort
+			    end
+			end
 
-		  fail_queue.push(request).concat( hydra.queued_requests)
-
-		  debug.print(2, "Pushed into fail_queue", request.url, "length is",  fail_queue.length, File.basename(__FILE__), __LINE__)
 		end
 	end
 
@@ -320,7 +333,7 @@ class Runner
 		syncer.run
 
 		puts "Finished running"
-		syncer.exit
+		#syncer.exit
 	end
 
 end
