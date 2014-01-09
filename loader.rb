@@ -10,6 +10,7 @@ require 'benchmark'
 require_relative 'helpers/debug.rb'
 require_relative 'helpers/reader.rb'
 require_relative 'helpers/writer.rb'
+require_relative 'helpers/browserheader.rb'
 
 # Require object extensions
 require_relative 'overrides/hash.rb'

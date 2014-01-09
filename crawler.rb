@@ -10,7 +10,6 @@ class YelpSync
 			:debug_level => config[:debug_level],
 			:cookie => {file: "cookie.txt"},
 			:category => config[:category],
-			:headers=> {"User-Agent" => "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.10) Gecko/20100915 Ubuntu/10.04 (lucid) Firefox/3.6.10"},
 			:strategy => {type: "parallel", delaymin: 1, delaymax: 5},#linear or parallel
 		}
 
@@ -24,7 +23,7 @@ class YelpSync
 
 		@moverdatawriter = Writer.new({filename: "moverdata.csv", mode: "a+"})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 100)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 
 		@finished_queue = []
 		@initial_queue = []
@@ -43,30 +42,35 @@ class YelpSync
 
 	# Generate a typhoeus request with the required options
 	def request(url)
-		Typhoeus::Request.new(url, followlocation: true, headers: config[:headers], cookiefile: config[:cookie][:file], cookiejar: config[:cookie][:file])
+		Typhoeus::Request.new( url, 
+			followlocation: true, 
+			headers: {"User-Agent" => BrowserHeader.random}, 
+			cookiefile: config[:cookie][:file],
+			cookiejar: config[:cookie][:file]
+		)
 	end
 
 	# Read links from input file to parse
 	def read_links()
 		links = linkr.read_array()
-		#binding.pry
+		##binding.pry
 		@initial_queue = links
-		#binding.pry
+		##binding.pry
 		links
 	end
 
 	# Add a single request to the queue
 	def queue(link)
-		##binding.pry
+		###binding.pry
 		req = request(link)
-		####binding.pry
+		#####binding.pry
 		req.on_complete {|res|  
-			####binding.pry
+			#####binding.pry
 			handle_response(req, res)
 		}
-		###binding.pry
+		####binding.pry
 		hydra.queue(req)
-		##binding.pry
+		###binding.pry
 	end
 
 	# Add multiple links to the queue
@@ -135,7 +139,7 @@ class YelpSync
 		
 		#moverdatawriter.write_marshal_dump( fail_queue)
 		pending_links = links || get_unfinished_links()
-		#binding.pry
+		##binding.pry
 		linkw.write_array(pending_links)
 
 	end
@@ -167,7 +171,7 @@ class YelpSync
 			debug.print(1, "Inside requests", File.basename(__FILE__), __LINE__)
 
 			req =  hydra.queued_requests.pop
-			#####binding.pry
+			######binding.pry
 
 			debug.print(1, "\n Popped", req.url, "length is",  hydra.queued_requests.length, File.basename(__FILE__), __LINE__) 
 				#puts req,  hydra.queued_requests.length
@@ -181,22 +185,23 @@ class YelpSync
 
 	def run_parallel_strategy
 		debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
-		####binding.pry
+		#####binding.pry
 		hydra.run
 	end
 
 	def handle_response(req, res)
-		##binding.pry
+		###binding.pry
 		if res.success?
-			binding.pry
+			##binding.pry
 		    # hell yeah
+		    debug.print(3, "Success", req.url)
 		    match_response(req, res)
 
 		    finished_queue << req.url
 
   		# The error case
 		else
-			####binding.pry
+			#####binding.pry
 			if res.timed_out?
 			    # aw hell no
 			    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
@@ -206,7 +211,7 @@ class YelpSync
 			else
 			    # Received a non-successful http response.
 			    debug.print(3, "HTTP request failed: " + res.code.to_s, File.basename(__FILE__), __LINE__)
-			    debug.print(2, hydra.queued_requests.length,  File.basename(__FILE__), __LINE__)
+			    debug.print(2,"Reamining: ", hydra.queued_requests.length,  File.basename(__FILE__), __LINE__)
 
 			    if res.code.to_s.eql? "403"
 			    	
