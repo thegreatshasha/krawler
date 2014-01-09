@@ -285,10 +285,6 @@ class YelpSync
 		
 		biz_links = doc.css("a.biz-name[href^='/biz']")
 		links = biz_links.map {|link|  config[:host] + link['href'] }
-
-		moverlinkswriter.write_array(links)
-		
-		moverlinks.concat(links)
 	end
 
 	def pagination_links(html, searchparams)
