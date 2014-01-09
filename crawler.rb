@@ -188,6 +188,7 @@ class YelpSync
 	def handle_response(req, res)
 		##binding.pry
 		if res.success?
+			binding.pry
 		    # hell yeah
 		    match_response(req, res)
 
