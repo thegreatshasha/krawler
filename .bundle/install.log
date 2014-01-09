@@ -1,0 +1,8 @@
+# Logfile created on 2014-01-09 07:17:53 +0000 by logger.rb/44203
+I, [2014-01-09T07:17:53.112395 #14599]  INFO -- : 0:  ffi (1.9.3) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/ffi-1.9.3.gemspec
+I, [2014-01-09T07:17:53.113772 #14599]  INFO -- : 0:  mime-types (1.25.1) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/mime-types-1.25.1.gemspec
+I, [2014-01-09T07:17:54.021335 #14599]  INFO -- : 0:  ethon (0.6.1) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/ethon-0.6.1.gemspec
+I, [2014-01-09T07:17:54.141602 #14599]  INFO -- : 0:  mini_portile (0.5.2) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/mini_portile-0.5.2.gemspec
+I, [2014-01-09T07:39:51.966115 #14599]  INFO -- : 0:  nokogiri (1.6.1) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/nokogiri-1.6.1.gemspec
+I, [2014-01-09T07:39:52.711265 #14599]  INFO -- : 0:  typhoeus (0.6.6) from /home/ubuntu/.rvm/gems/ruby-2.1.0/specifications/typhoeus-0.6.6.gemspec
+I, [2014-01-09T07:39:52.712504 #14599]  INFO -- : 0:  bundler (1.5.1) from /home/ubuntu/.rvm/gems/ruby-2.1.0@global/specifications/bundler-1.5.1.gemspec
