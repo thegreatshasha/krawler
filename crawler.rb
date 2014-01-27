@@ -17,11 +17,11 @@ class YelpSync
 
 		@analytics = {}
 
-		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
-		@linkw = Writer.new({filename: "links.txt", mode: "w", debug_level: 1})
-		@bizlinkw = Writer.new({filename: "moverlinks.txt", mode: "a+", debug_level: 1})
+		@linkr = Reader.new({filename: "links2.txt", debug_level: 1})
+		@linkw = Writer.new({filename: "links2.txt", mode: "w", debug_level: 1})
+		@bizlinkw = Writer.new({filename: "moverlinks2.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdata2.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdata4.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 
@@ -293,14 +293,14 @@ class YelpSync
 
 	def dom(html)
 		doc = Nokogiri::HTML(html)
-		puts  hydra.queued_requests.length, "Requests Remaining\n" if  config[:remaining]
+		debug.print(4, hydra.queued_requests.length, "Requests Remaining\n")
 		return doc
 	end
 
 	def parse_moverlinks(html, state)
 		doc = dom(html)
 		
-		debug.print(2, "Parsing moverlinks from html", File.basename(__FILE__), __LINE__)
+		debug.print(1, "Parsing moverlinks from html", File.basename(__FILE__), __LINE__)
 		
 		biz_links = doc.css("a.biz-name[href^='/biz']")
 
@@ -311,6 +311,8 @@ class YelpSync
 			links << link
 			@state_link_map[link] = state
 		end
+
+		debug.print(2, links.length, "Pages found for", state, File.basename(__FILE__), __LINE__)
 
 		links
 	end
@@ -324,16 +326,19 @@ class YelpSync
 			matches = string.match(/(\d+)-(\d+).+ (\d+)/)
 			diff = matches[2].to_i - matches[1].to_i + 1
 			total = matches[3].to_i
-			number = total/diff
+			number = total/diff + (1 if total % diff)
+			#binding.pry
 
 			number.times do |index|
-				searchparams[:start] = (index + 1) * diff
+				searchparams[:start] = index * diff
+				#binding.pry
 				link = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 				links << link
 				#puts link if config[:debug]
-				debug.print(1, "Pagination link: ", link, File.basename(__FILE__), __LINE__)
+				debug.print(3, "Pagination link: ", link, File.basename(__FILE__), __LINE__)
 			end
 		end
+		#binding.pry
 
 		links
 
@@ -345,9 +350,10 @@ class Runner
 	attr_accessor :syncer
 
 	def initialize(config)
-		@syncer = YelpSync.new({category: "movers", debug_level: 1})
+		@syncer = YelpSync.new({category: "movers", debug_level: 2})
 		#Phase 1
 		states = ["AK",  "AL",  "AR",  "AS",  "AZ",  "CA",  "CO",  "CT",  "DC",  "DE",  "FL",  "GA",  "GU",  "HI",  "IA",  "ID",  "IL",  "IN",  "KS",  "KY",  "LA",  "MA",  "MD",  "ME",  "MI",  "MN",  "MO",  "MP",  "MS",  "MT",  "NC",  "ND",  "NE",  "NH",  "NJ",  "NM",  "NV",  "NY",  "OH",  "OK",  "OR",  "PA",  "PR",  "RI",  "SC",  "SD",  "TN",  "TX",  "UM",  "UT",  "VA",  "VI",  "VT",  "WA",  "WI",  "WV",  "WY"]
+		states = ["CT", "IN", "HI"]#, "DA", "GC", "FL"]
 
 		unless config[:cache]
 			syncer.write_state_links(states)
