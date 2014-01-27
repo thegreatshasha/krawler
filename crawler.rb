@@ -10,7 +10,7 @@ class YelpSync
 			:debug_level => config[:debug_level],
 			:cookie => {file: "cookie.txt"},
 			:category => config[:category],
-			:strategy => {type: "linear", delaymin: 1, delaymax: 15},#linear or parallel
+			:strategy => {type: "linear", delaymin: 1, delaymax: 5},#linear or parallel
 		}
 
 		@debug = DebugHelper.new(config[:debug_level])
@@ -21,12 +21,14 @@ class YelpSync
 		@linkw = Writer.new({filename: "links.txt", mode: "w", debug_level: 1})
 		@bizlinkw = Writer.new({filename: "moverlinks.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdata.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdata2.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 
 		@finished_queue = []
 		@initial_queue = []
+
+		@state_link_map = {}
 	end
 
 	# In case the website does not allow concurrent requests
@@ -48,6 +50,15 @@ class YelpSync
 			cookiefile: config[:cookie][:file],
 			cookiejar: config[:cookie][:file]
 		)
+	end
+
+	def get_params(url, property = nil)
+		params = {}
+		
+		CGI.parse(URI.parse(url).query()).map {|key, value| params[key.to_sym] = value[0] }
+
+		return params[property] if property
+		return params
 	end
 
 	# Read links from input file to parse
@@ -101,18 +112,18 @@ class YelpSync
 			# Pagination link found, fetch and grab links
 			if url.match(/\&start\=/)
 				
-				mlinks = parse_moverlinks(html)
+				mlinks = parse_moverlinks(html, get_params(url, :find_loc))
 
 				bizlinkw.write_array(mlinks)
 
 				# Queue the business links
 				#Uncomment after replacing these links by webcache links
-				#queue_links(mlinks)
+				binding.pry
+				queue_links(mlinks)
 			
 			#First time hitting search
 			else
-				searchparams = {}
-				CGI.parse(URI.parse(url).query()).map {|key, value| searchparams[key.to_sym] = value[0] }
+				searchparams = get_params(url)
 					
 				plinks =  pagination_links(html, searchparams)
 					
@@ -229,7 +240,7 @@ class YelpSync
 	def write_state_links(states)
 		links = states.map do |state|
 			
-			searchparams = {find_desc: config[:category], find_loc: state}
+			searchparams = {find_desc: config[:category], find_loc: state, sortby: "rating"}
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
 			# Write to file
@@ -284,13 +295,20 @@ class YelpSync
 		return doc
 	end
 
-	def parse_moverlinks(html)
+	def parse_moverlinks(html, state)
 		doc = dom(html)
 		
 		debug.print(2, "Parsing moverlinks from html", File.basename(__FILE__), __LINE__)
 		
 		biz_links = doc.css("a.biz-name[href^='/biz']")
-		links = biz_links.map {|link|  config[:host] + link['href'] }
+
+		links = []
+		
+		biz_links.each do |link|
+			link = config[:host] + link['href']
+			links << link
+			@state_link_map[link] = state
+		end
 	end
 
 	def pagination_links(html, searchparams)
@@ -342,4 +360,4 @@ class Runner
 
 end
 
-r = Runner.new({cache: true})
+r = Runner.new({cache: false})
