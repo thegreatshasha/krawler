@@ -10,7 +10,7 @@ class YelpSync
 			:debug_level => config[:debug_level],
 			:cookie => {file: "cookie.txt"},
 			:category => config[:category],
-			:strategy => {type: "linear", delaymin: 1, delaymax: 5},#linear or parallel
+			:strategy => {type: "linear", delaymin: 1, delaymax: 3},#linear or parallel
 		}
 
 		@debug = DebugHelper.new(config[:debug_level])
