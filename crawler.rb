@@ -136,7 +136,7 @@ class YelpSync
 			data = parse_mover_profile(html)
 			data[:link] = url
 			data[:state] = @state_link_map[url]
-			binding.pry
+			#binding.pry
 
 			# Save the moverdata to file
 			moverdatawriter.write_hash(data)
