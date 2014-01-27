@@ -309,6 +309,8 @@ class YelpSync
 			links << link
 			@state_link_map[link] = state
 		end
+
+		links
 	end
 
 	def pagination_links(html, searchparams)
