@@ -10,18 +10,18 @@ class YelpSync
 			:debug_level => config[:debug_level],
 			:cookie => {file: "cookie.txt"},
 			:category => config[:category],
-			:strategy => {type: "linear", delaymin: 1, delaymax: 3},#linear or parallel
+			:strategy => {type: "linear", delaymin: 0, delaymax: 2},#linear or parallel
 		}
 
 		@debug = DebugHelper.new(config[:debug_level])
 
 		@analytics = {}
 
-		@linkr = Reader.new({filename: "links2.txt", debug_level: 1})
-		@linkw = Writer.new({filename: "links2.txt", mode: "w", debug_level: 1})
-		@bizlinkw = Writer.new({filename: "moverlinks2.txt", mode: "a+", debug_level: 1})
+		@linkr = Reader.new({filename: "links3.txt", debug_level: 1})
+		@linkw = Writer.new({filename: "links3.txt", mode: "w", debug_level: 1})
+		@bizlinkw = Writer.new({filename: "moverlinks3.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdata4.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdata5.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 
@@ -242,7 +242,7 @@ class YelpSync
 	def write_state_links(states)
 		links = states.map do |state|
 			
-			searchparams = {find_desc: config[:category], find_loc: state, sortby: "rating"}
+			searchparams = {find_desc: config[:category], find_loc: state}#, sortby: "rating"}
 			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 			
 			# Write to file
