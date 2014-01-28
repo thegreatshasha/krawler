@@ -17,11 +17,11 @@ class YelpSync
 
 		@analytics = {}
 
-		@linkr = Reader.new({filename: "links3.txt", debug_level: 1})
-		@linkw = Writer.new({filename: "links3.txt", mode: "w", debug_level: 1})
-		@bizlinkw = Writer.new({filename: "moverlinks3.txt", mode: "a+", debug_level: 1})
+		@linkr = Reader.new({filename: "links4.txt", debug_level: 1})
+		@linkw = Writer.new({filename: "links4.txt", mode: "w", debug_level: 1})
+		@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdata5.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 
