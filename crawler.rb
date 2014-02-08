@@ -1,29 +1,28 @@
 require_relative 'loader.rb'
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :moverdatawriter, :reader, :debug, :linkr, :linkw, :bizlinkw, :finished_queue, :initial_queue
+	attr_accessor :config, :analytics, :hydra, :reader, :debug, :linkr, :finished_queue, :initial_queue
+	attr_accessor :zip_writer
 
 	def initialize(config)
 		@config = {
-			:host => "yelp.com", 
-			:search_path => "/search", 			
+			:host => "city-data.com", 
 			:debug_level => config[:debug_level],
 			:cookie => {file: "cookie.txt"},
-			:category => config[:category],
-			:strategy => {type: "linear", delaymin: 0, delaymax: 2},#linear or parallel
+			:strategy => {type: "parallel", delaymin: 0, delaymax: 2},#linear or parallel
 		}
 
 		@debug = DebugHelper.new(config[:debug_level])
 
 		@analytics = {}
 
-		@linkr = Reader.new({filename: "links4.txt", debug_level: 1})
-		@linkw = Writer.new({filename: "links4.txt", mode: "w", debug_level: 1})
-		@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
+		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
+		@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "w", debug_level: 1})
+		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
+		#@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 10)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 2)
 
 		@finished_queue = []
 		@initial_queue = []
@@ -108,41 +107,31 @@ class YelpSync
 		url = req.url
 		html = res.body
 
-		if url.match(/\/search/)
-			# Pagination link found, fetch and grab links
-			if url.match(/\&start\=/)
+		#Match conditions here
+		if url.match(/zips\/zipdir\/dir/)
 				
-				mlinks = parse_moverlinks(html, get_params(url, :find_loc))
+			ziplinks = parse_links(html)
 
-				bizlinkw.write_array(mlinks)
-
-				# Queue the business links
-				#Uncomment after replacing these links by webcache links
-				#binding.pry
-				queue_links(mlinks)
-			
-			#First time hitting search
-			else
-				searchparams = get_params(url)
-					
-				plinks =  pagination_links(html, searchparams)
-					
-				queue_links(plinks)
-			end
+			#bizlinkw.write_array(mlinks)
+			zip_writer.write_array(ziplinks)
+			# Queue the business links
+			#Uncomment after replacing these links by webcache links
+			#binding.pry
+			#queue_links(ziplinks)
 		
 		# If business link found
-		elsif url.match(/\/biz/)
+		elsif url.match(/\/zipDir/)
 			
-			data = parse_mover_profile(html)
-			data[:link] = url
-			data[:state] = @state_link_map[url]
+			plinks = parse_links(html)
 			#binding.pry
 
 			# Save the moverdata to file
-			moverdatawriter.write_hash(data)
+			#moverdatawriter.write_hash(data)
+
+			queue_links(plinks)
 		end
 
-		#Possible actions are pagination_links, parse_moverlinks
+		#Possible actions are pagination_links, parse_links
 				
 	end
 
@@ -239,35 +228,9 @@ class YelpSync
 		end
 	end
 
-	def write_state_links(states)
-		links = states.map do |state|
-			
-			searchparams = {find_desc: config[:category], find_loc: state}#, sortby: "rating"}
-			search_string = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
-			
-			# Write to file
-		end
-
-		# Initial prepopulation
-		linkw.write_array(links)
-	end
-
+	
 =begin
-	def mover_data
-		moverlinks.each do |mover_profile_link|
-			request =  request(mover_profile_link)
-			
-			queue(request) { |doc|
-				data =  parse_mover_profile(doc)
-				data[:link] = mover_profile_link
-				moverdata << data
-			}
-		end
-	end
-=end
-
-
-	def parse_mover_profile(html)
+	def parse(html)
 		doc = dom(html)
 		debug.print(2, "Parsing mover profile data", File.basename(__FILE__), __LINE__)
 
@@ -290,6 +253,7 @@ class YelpSync
 
 		return moverdata
 	end
+=end
 
 	def dom(html)
 		doc = Nokogiri::HTML(html)
@@ -297,22 +261,21 @@ class YelpSync
 		return doc
 	end
 
-	def parse_moverlinks(html, state)
+	def parse_links(html)
 		doc = dom(html)
 		
 		debug.print(1, "Parsing moverlinks from html", File.basename(__FILE__), __LINE__)
 		
-		biz_links = doc.css("a.biz-name[href^='/biz']")
+		ziplinks = doc.css(".zipList a")
 
 		links = []
 		
-		biz_links.each do |link|
+		ziplinks.each do |link|
 			link = config[:host] + link['href']
 			links << link
-			@state_link_map[link] = state
 		end
 
-		debug.print(2, links.length, "Pages found for", state, File.basename(__FILE__), __LINE__)
+		debug.print(2, links.length, "Pages found for", File.basename(__FILE__), __LINE__)
 
 		links
 	end
@@ -370,4 +333,4 @@ class Runner
 
 end
 
-r = Runner.new({cache: false})
+r = Runner.new({cache: true})
