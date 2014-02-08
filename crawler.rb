@@ -17,7 +17,7 @@ class YelpSync
 		@analytics = {}
 
 		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
-		@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "w", debug_level: 1})
+		@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
 		#@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
@@ -63,24 +63,24 @@ class YelpSync
 	# Read links from input file to parse
 	def read_links()
 		links = linkr.read_array()
-		##binding.pry
+		###binding.pry
 		@initial_queue = links
-		##binding.pry
+		###binding.pry
 		links
 	end
 
 	# Add a single request to the queue
 	def queue(link)
-		###binding.pry
+		####binding.pry
 		req = request(link)
-		#####binding.pry
+		######binding.pry
 		req.on_complete {|res|  
-			#####binding.pry
+			######binding.pry
 			handle_response(req, res)
 		}
-		####binding.pry
+		#####binding.pry
 		hydra.queue(req)
-		###binding.pry
+		####binding.pry
 	end
 
 	# Add multiple links to the queue
@@ -106,6 +106,7 @@ class YelpSync
 		# Instead of callbacks, i can have a url pattern check here to determine appropriate respose
 		url = req.url
 		html = res.body
+		#binding.pry
 
 		#Match conditions here
 		if url.match(/zips\/zipdir\/dir/)
@@ -116,14 +117,14 @@ class YelpSync
 			zip_writer.write_array(ziplinks)
 			# Queue the business links
 			#Uncomment after replacing these links by webcache links
-			#binding.pry
+			##binding.pry
 			#queue_links(ziplinks)
 		
 		# If business link found
 		elsif url.match(/\/zipDir/)
 			
 			plinks = parse_links(html)
-			#binding.pry
+			##binding.pry
 
 			# Save the moverdata to file
 			#moverdatawriter.write_hash(data)
@@ -141,7 +142,7 @@ class YelpSync
 		
 		#moverdatawriter.write_marshal_dump( fail_queue)
 		pending_links = links || get_unfinished_links()
-		##binding.pry
+		###binding.pry
 		linkw.write_array(pending_links)
 
 	end
@@ -173,7 +174,7 @@ class YelpSync
 			debug.print(1, "Inside requests", File.basename(__FILE__), __LINE__)
 
 			req =  hydra.queued_requests.pop
-			######binding.pry
+			#######binding.pry
 
 			debug.print(1, "\n Popped", req.url, "length is",  hydra.queued_requests.length, File.basename(__FILE__), __LINE__) 
 				#puts req,  hydra.queued_requests.length
@@ -187,14 +188,14 @@ class YelpSync
 
 	def run_parallel_strategy
 		debug.print(3, "Running parallel strategy", File.basename(__FILE__), __LINE__)
-		#####binding.pry
+		######binding.pry
 		hydra.run
 	end
 
 	def handle_response(req, res)
-		###binding.pry
+		####binding.pry
 		if res.success?
-			##binding.pry
+			###binding.pry
 		    # hell yeah
 		    debug.print(3, "Success", req.url)
 		    match_response(req, res)
@@ -203,7 +204,7 @@ class YelpSync
 
   		# The error case
 		else
-			#####binding.pry
+			######binding.pry
 			if res.timed_out?
 			    # aw hell no
 			    debug.print(3, "got a time out", File.basename(__FILE__), __LINE__)
@@ -290,18 +291,18 @@ class YelpSync
 			diff = matches[2].to_i - matches[1].to_i + 1
 			total = matches[3].to_i
 			number = total/diff + (1 if total % diff)
-			#binding.pry
+			##binding.pry
 
 			number.times do |index|
 				searchparams[:start] = index * diff
-				#binding.pry
+				##binding.pry
 				link = URI::HTTP.build(:host => config[:host], :path => config[:search_path], :query => searchparams.to_query).to_s
 				links << link
 				#puts link if config[:debug]
 				debug.print(3, "Pagination link: ", link, File.basename(__FILE__), __LINE__)
 			end
 		end
-		#binding.pry
+		##binding.pry
 
 		links
 
@@ -323,7 +324,7 @@ class Runner
 		end
 		links = syncer.read_links()
 		syncer.queue_links(links)
-		
+		#binding.pry
 		#puts "Fresh start"
 		syncer.run
 
