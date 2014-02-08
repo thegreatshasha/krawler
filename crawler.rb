@@ -22,7 +22,7 @@ class YelpSync
 
 		#@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 2)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
 
 		@finished_queue = []
 		@initial_queue = []
@@ -65,8 +65,9 @@ class YelpSync
 		links = linkr.read_array()
 		##binding.pry
 		@initial_queue = links
-		##binding.pry
+		binding.pry
 		links
+
 	end
 
 	# Add a single request to the queue
@@ -106,7 +107,7 @@ class YelpSync
 		# Instead of callbacks, i can have a url pattern check here to determine appropriate respose
 		url = req.url
 		html = res.body
-
+		binding.pry
 		#Match conditions here
 		if url.match(/zips\/zipdir\/dir/)
 				
@@ -276,7 +277,7 @@ class YelpSync
 		end
 
 		debug.print(2, links.length, "Pages found for", File.basename(__FILE__), __LINE__)
-
+		binding.pry
 		links
 	end
 
@@ -323,7 +324,7 @@ class Runner
 		end
 		links = syncer.read_links()
 		syncer.queue_links(links)
-		
+		binding.pry		
 		#puts "Fresh start"
 		syncer.run
 
