@@ -16,13 +16,13 @@ class YelpSync
 
 		@analytics = {}
 
-		@linkr = Reader.new({filename: "links.txt", debug_level: 1})
-		@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
+		@linkr = Reader.new({filename: "zipcodes.txt", debug_level: 1})
+		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		#@moverdatawriter = Writer.new({filename: "moverdata6.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdataamsa.csv", mode: "a+", debug_level: 1})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 40)
 
 		@finished_queue = []
 		@initial_queue = []
@@ -110,29 +110,19 @@ class YelpSync
 		#binding.pry
 
 		#Match conditions here
-		if url.match(/zips\/zipdir\/dir/)
+		if url.match(/amsa-promover-results\.asp/)
 				
-			ziplinks = parse_links(html)
+			movers = parse(html)
+
+			moverdatawriter.write_hashes(movers)
 
 			#bizlinkw.write_array(mlinks)
-			zip_writer.write_array(ziplinks)
+			#zip_writer.write_array(ziplinks)
 			# Queue the business links
 			#Uncomment after replacing these links by webcache links
 			##binding.pry
 			#queue_links(ziplinks)
-		
-		# If business link found
-		elsif url.match(/\/zipDir/)
-			
-			plinks = parse_links(html)
-			##binding.pry
-
-			# Save the moverdata to file
-			#moverdatawriter.write_hash(data)
-
-			queue_links(plinks)
 		end
-
 		#Possible actions are pagination_links, parse_links
 				
 	end
@@ -231,31 +221,30 @@ class YelpSync
 	end
 
 	
-=begin
 	def parse(html)
 		doc = dom(html)
 		debug.print(2, "Parsing mover profile data", File.basename(__FILE__), __LINE__)
+		#binding.pry
+		movers = []
 
-		moverdata = {
-			name: doc.css("h1").text.sub("\n", "").strip,
-			phone: doc.css("[itemprop='telephone']").text,
-			address: doc.css("address").text.sub("\n", "").strip,
-			numofreviews: doc.css("[itemprop='reviewCount']").text,
-			homepage: doc.css("#bizUrl a").text,
-			address: doc.css("address").text.sub("\n", "").strip,
-			acceptscreditcards: doc.css(".attr-BusinessAcceptsCreditCards").text,
-			hours: doc.css(".hours").text,
-		}
-		
-		begin
-			moverdata[:rating] = doc.css("[itemprop='ratingValue']").attr("content").value
-		rescue
-			moverdata[:rating] = ""
+		doc.css("div.AMSACompanyList").each do |minidoc|
+			moverdata = {}
+
+			minidoc.css("br").each { |node| node.replace("\n") }
+
+			moverdata[:name] = minidoc.css("div.AMSACompanySect strong").text
+			text = minidoc.css("div.AMSACompanySect").text.sub(moverdata[:name], "")
+
+			total, moverdata[:address], moverdata[:phone], moverdata[:mcno] = *text.match(/\n?([\s\S]*)\n(\(\d+\)\s+\d+\-\d+)?\n(MC No.\s+\d+)?/)
+			moverdata[:distance] = minidoc.css("div.SearchRadius").text.strip
+
+			movers << moverdata
+
+			#binding.pry
 		end
 
-		return moverdata
+		return movers
 	end
-=end
 
 	def dom(html)
 		doc = Nokogiri::HTML(html)
