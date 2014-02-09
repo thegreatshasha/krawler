@@ -1,7 +1,7 @@
 require_relative 'loader.rb'
 
 class YelpSync
-	attr_accessor :config, :analytics, :hydra, :reader, :debug, :linkr, :finished_queue, :initial_queue, :moverhashes
+	attr_accessor :config, :analytics, :hydra, :reader, :debug, :linkr
 	attr_accessor :zip_writer, :moverdatawriter
 
 	def initialize(config)
@@ -14,20 +14,16 @@ class YelpSync
 
 		@debug = DebugHelper.new(config[:debug_level])
 
-		@analytics = {}
-
-		@moverhashes = []
-
 		@linkr = Reader.new({filename: "zipcodes.txt", debug_level: 1})
 		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdataamsa4.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdataamsa5.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
 
-		@finished_queue = []
-		@initial_queue = []
+		#@finished_queue = []
+		#@initial_queue = []
 
 		@state_link_map = {}
 	end
