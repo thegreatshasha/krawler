@@ -5,6 +5,7 @@ require 'typhoeus'
 require 'nokogiri'
 require 'csv'
 require 'benchmark'
+require 'cgi'
 
 # Require necessary files and helpers
 require_relative 'helpers/debug.rb'

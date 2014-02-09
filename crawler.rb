@@ -20,7 +20,7 @@ class YelpSync
 		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdataamsa.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdataamsa2.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 40)
 
@@ -111,8 +111,8 @@ class YelpSync
 
 		#Match conditions here
 		if url.match(/amsa-promover-results\.asp/)
-				
-			movers = parse(html)
+			#binding.pry
+			movers = parse(html, get_params(url, :ProMoverZip))
 
 			moverdatawriter.write_hashes(movers)
 
@@ -221,7 +221,7 @@ class YelpSync
 	end
 
 	
-	def parse(html)
+	def parse(html, zipcode)
 		doc = dom(html)
 		debug.print(2, "Parsing mover profile data", File.basename(__FILE__), __LINE__)
 		#binding.pry
@@ -237,6 +237,7 @@ class YelpSync
 
 			total, moverdata[:address], moverdata[:phone], moverdata[:mcno] = *text.match(/\n?([\s\S]*)\n(\(\d+\)\s+\d+\-\d+)?\n(MC No.\s+\d+)?/)
 			moverdata[:distance] = minidoc.css("div.SearchRadius").text.strip
+			moverdata[:zipcode] = zipcode
 
 			movers << moverdata
 
