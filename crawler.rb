@@ -2,7 +2,7 @@ require_relative 'loader.rb'
 
 class YelpSync
 	attr_accessor :config, :analytics, :hydra, :reader, :debug, :linkr, :finished_queue, :initial_queue
-	attr_accessor :zip_writer
+	attr_accessor :zip_writer, :moverdatawriter
 
 	def initialize(config)
 		@config = {
