@@ -62,7 +62,7 @@ class YelpSync
 	def read_links()
 		links = linkr.read_array()
 		###binding.pry
-		@initial_queue = links
+		#@initial_queue = links
 		###binding.pry
 		links
 
@@ -97,7 +97,7 @@ class YelpSync
 	end
 
 	def get_unfinished_links()
-		initial_queue - finished_queue
+		#initial_queue - finished_queue
 	end
 
 	# After we get a successfull response, we select what to do
@@ -189,7 +189,7 @@ class YelpSync
 		    debug.print(3, "Success", req.url)
 		    match_response(req, res)
 
-		    finished_queue << req.url
+		    #finished_queue << req.url
 
   		# The error case
 		else
@@ -209,7 +209,7 @@ class YelpSync
 			    	
 			    	debug.print(4, "Exiting because of 403", File.basename(__FILE__), __LINE__)
 			    	
-					write_pending_links()
+					#write_pending_links()
 			    	#exit
 			    	abort
 			    end
