@@ -18,7 +18,7 @@ class YelpSync
 		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdataamsa5.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdataamsa6.csv", mode: "a+", debug_level: 1})
 
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
 

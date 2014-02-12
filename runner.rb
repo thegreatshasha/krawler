@@ -1,28 +1,39 @@
 require_relative "crawler.rb"
 
+#Runs the yelpsync in batches as queing them all at the same time will be a pain
 class Runner
-	attr_accessor :syncer
+	attr_accessor :syncer, :current, :links
 
 	def initialize(config)
-		@syncer = YelpSync.new({category: "movers", debug_level: 2})
-		#Phase 1
-		states = ["AK",  "AL",  "AR",  "AS",  "AZ",  "CA",  "CO",  "CT",  "DC",  "DE",  "FL",  "GA",  "GU",  "HI",  "IA",  "ID",  "IL",  "IN",  "KS",  "KY",  "LA",  "MA",  "MD",  "ME",  "MI",  "MN",  "MO",  "MP",  "MS",  "MT",  "NC",  "ND",  "NE",  "NH",  "NJ",  "NM",  "NV",  "NY",  "OH",  "OK",  "OR",  "PA",  "PR",  "RI",  "SC",  "SD",  "TN",  "TX",  "UM",  "UT",  "VA",  "VI",  "VT",  "WA",  "WI",  "WV",  "WY"]
-		#states = ["CT", "IN", "HI"]#, "DA", "GC", "FL"]
-
-		unless config[:cache]
-			syncer.write_state_links(states)
-		end
-		links = syncer.read_links()
-		syncer.queue_links(links)
-		#puts "Fresh start"
-		syncer.run
-		unique_hashes = Unique.hashes({hashes: moverhashes, unique: [:name]})
-		binding.pry
-
-		puts "Finished running"
+		@syncer = YelpSync.new({category: config[:category], debug_level: config[:debug_level]})
 		#syncer.exit
+
+		# The gigantic array of all the links. Later read these step by step as well.
+		@links = syncer.read_links()
+
+		@current = 0
+
+		@batch_size = config[:batch_size]
+	end
+
+	def run_in_batches
+
+		while @current < @links.length
+			puts "Starting batch #{@current}"
+
+			syncer.queue_links(@links[@current..@current + @batch_size - 1])
+			#puts "Fresh start"
+			syncer.run
+			#binding.pry
+
+			puts "Finished running batch #{@current}"
+			
+			@current += @batch_size
+		end
+	
 	end
 
 end
 
-r = Runner.new({cache: true})
+r = Runner.new({category: "movers", debug_level: 2, batch_size: 100})
+r.run_in_batches
