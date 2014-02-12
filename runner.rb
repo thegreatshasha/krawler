@@ -35,5 +35,5 @@ class Runner
 
 end
 
-r = Runner.new({category: "movers", debug_level: 2, batch_size: 100})
+r = Runner.new({category: "movers", debug_level: 2, batch_size: 5})
 r.run_in_batches

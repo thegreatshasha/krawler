@@ -105,7 +105,7 @@ class YelpSync
 		# Instead of callbacks, i can have a url pattern check here to determine appropriate respose
 		url = req.url
 		html = res.body
-		#binding.pry
+		binding.pry
 
 		#Match conditions here
 		if url.match(/amsa-promover-results\.asp/)
