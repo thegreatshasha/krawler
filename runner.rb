@@ -29,6 +29,8 @@ class Runner
 			puts "Finished running batch #{@current}"
 			
 			@current += @batch_size
+
+			GC.start
 		end
 	
 	end
