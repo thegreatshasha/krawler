@@ -6,6 +6,8 @@ require 'nokogiri'
 require 'csv'
 require 'benchmark'
 require 'cgi'
+require 'allocation_stats'
+require 'pry'
 
 # Require necessary files and helpers
 require_relative 'helpers/debug.rb'

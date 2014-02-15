@@ -1,6 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    allocation_stats (0.1.4)
     coderay (1.1.0)
     columnize (0.3.6)
     debugger (1.6.5)
@@ -33,6 +34,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  allocation_stats
   nokogiri
   pry
   pry-debugger
