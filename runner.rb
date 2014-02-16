@@ -10,7 +10,7 @@ class Runner
 
 		# The gigantic array of all the links. Later read these step by step as well.
 		@links = syncer.read_links()
-		@links = @links[0..5000]
+		@links = @links[0..4]
 
 		@current = 0
 
@@ -39,10 +39,10 @@ class Runner
 end
 
 stats = AllocationStats.trace do
-	r = Runner.new({category: "movers", debug_level: 2, batch_size: 20})
+	r = Runner.new({category: "movers", debug_level: 2, batch_size: 1})
 	r.run_in_batches
 end
 
-text = stats.allocations(alias_paths: true).group_by(:sourcefile, :class).to_text
+text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class, :class_path, :method_id, :memsize).to_text
 File.write("logs/allocationstats/#{Time.now}.log", text)
 #binding.pry
