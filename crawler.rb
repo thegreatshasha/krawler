@@ -20,7 +20,7 @@ class YelpSync
 
 		@moverdatawriter = Writer.new({filename: "moverdataamsa6.csv", mode: "a+", debug_level: 1})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 5)
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 1)
 
 		#@finished_queue = []
 		#@initial_queue = []
