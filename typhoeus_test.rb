@@ -24,6 +24,6 @@ end
 
 puts "Generating text"
 #binding.pry
-text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class).sort_by_count.to_text
+text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class, :memsize).sort_by_count.to_text
 File.write("logs/typhoeus/#{Time.now}.log", text)
 #binding.pry
