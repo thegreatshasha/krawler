@@ -3,7 +3,7 @@ require 'allocation_stats'
 require 'pry'
  
 num_requests = 20
-requests_per_iteration = 5
+requests_per_iteration = 50
  
 stats = AllocationStats.trace do
 	num_requests.times do
