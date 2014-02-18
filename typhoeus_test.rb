@@ -1,14 +1,15 @@
 require 'typhoeus'
 require 'allocation_stats'
 require 'pry'
+
+Typhoeus::Config.memoize = false
  
 num_requests = 20
-requests_per_iteration = 50
+requests_per_iteration = 15
  
 stats = AllocationStats.trace do
 	num_requests.times do
 		hydra = Typhoeus::Hydra.new
-		
 		requests_per_iteration.times do |i|
 			hydra.queue(Typhoeus::Request.new("https://www.google.com?q=foo-#{i}"))
 		end
