@@ -29,7 +29,7 @@ class Runner
 			#GC.enable
 			#GC.start
 
-			#binding.pry
+			binding.pry
 
 			puts "Finished running batch #{@current}. #{@links.length - @current} requests remaining"
 			
