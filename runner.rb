@@ -43,13 +43,13 @@ class Runner
 end
 
 #binding.pry
-stats = AllocationStats.trace do
+#stats = AllocationStats.trace do
 	r = Runner.new({category: "movers", debug_level: 12, batch_size: 100})
 	r.run_in_batches
-end
+#end
 
-puts "\nGenerating analytics\n"
+puts "\nDone\n"
 
-text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class).sort_by_count.to_text
-File.write("logs/allocationstats/#{Time.now}.log", text)
+#text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class).sort_by_count.to_text
+#File.write("logs/allocationstats/#{Time.now}.log", text)
 #binding.pry
