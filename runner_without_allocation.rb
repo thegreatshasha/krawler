@@ -25,11 +25,7 @@ class Runner
 			syncer.queue_links(@links[@current..@current + @batch_size - 1])
 			#puts "Fresh start"
 			syncer.run
-
-			#GC.enable
-			#GC.start
-
-			#binding.pry
+			binding.pry
 
 			puts "Finished running batch #{@current}. #{@links.length - @current} requests remaining"
 			
@@ -43,13 +39,5 @@ class Runner
 end
 
 #binding.pry
-stats = AllocationStats.trace do
-	r = Runner.new({category: "movers", debug_level: 12, batch_size: 100})
-	r.run_in_batches
-end
-
-puts "\nGenerating analytics\n"
-
-text = stats.allocations(alias_paths: true).group_by(:sourcefile, :sourceline, :class).sort_by_count.to_text
-File.write("logs/allocationstats/#{Time.now}.log", text)
-#binding.pry
+r = Runner.new({category: "movers", debug_level: 12, batch_size: 100})
+r.run_in_batches

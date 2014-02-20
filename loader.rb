@@ -19,4 +19,4 @@ require_relative 'helpers/unique.rb'
 # Require object extensions
 require_relative 'overrides/hash.rb'
 require_relative 'overrides/object.rb'
-require_relative 'overrides/typhoeus.rb'
+#require_relative 'overrides/typhoeus.rb'

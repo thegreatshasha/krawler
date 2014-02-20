@@ -14,13 +14,14 @@ class YelpSync
 
 		@debug = DebugHelper.new(config[:debug_level])
 
-		@linkr = Reader.new({filename: "zipcodes.txt", debug_level: 1})
+		@linkr = Reader.new({filename: "zipcodes.txt", debug_level: 5})
 		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdataamsa6.csv", mode: "a+", debug_level: 1})
+		@moverdatawriter = Writer.new({filename: "moverdataamsa7.csv", mode: "a+", debug_level: 5})
 
-		@hydra = Typhoeus::Hydra.new(max_concurrency: 1)
+		Typhoeus::Config.memoize = false
+		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
 
 		#@finished_queue = []
 		#@initial_queue = []
@@ -153,6 +154,8 @@ class YelpSync
 		}
 		
 		debug.print(4, "Hydra Sync Finished running", File.basename(__FILE__), __LINE__)
+
+		GC.start
 	end
 
 	# Put a random delay between requests
