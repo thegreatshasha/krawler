@@ -14,11 +14,12 @@ class YelpSync
 
 		@debug = DebugHelper.new(config[:debug_level])
 
-		@linkr = Reader.new({filename: "zipcodes.txt", debug_level: 5})
+		@linkr = Reader.new({filename: "moversearch.txt", debug_level: 5})
 		#@zip_writer = Writer.new({filename: "zipcodes.txt", mode: "a+", debug_level: 1})
 		#@bizlinkw = Writer.new({filename: "moverlinks4.txt", mode: "a+", debug_level: 1})
 
-		@moverdatawriter = Writer.new({filename: "moverdataamsa7.csv", mode: "a+", debug_level: 5})
+		@moverprofilewriter = Writer.new({filename: "moverprofileziplinks.txt", mode: "a+", debug_level: 5})
+    
 
 		Typhoeus::Config.memoize = false
 		@hydra = Typhoeus::Hydra.new(max_concurrency: 20)
@@ -109,11 +110,14 @@ class YelpSync
 		#binding.pry
 
 		#Match conditions here
-		if url.match(/amsa-promover-results\.asp/)
+		if url.match(/zip-codes\/\d+/)
 			#binding.pry
-			movers = parse(html, get_params(url, :ProMoverZip))
+      byebug
+			#movers = parse(html, get_params(url, :ProMoverZip))
 
-			moverdatawriter.write_hashes(movers)
+			#moverdatawriter.write_hashes(movers)
+      
+      # get pagination links here
 
 			#bizlinkw.write_array(mlinks)
 			#zip_writer.write_array(ziplinks)
@@ -121,6 +125,8 @@ class YelpSync
 			#Uncomment after replacing these links by webcache links
 			##binding.pry
 			#queue_links(ziplinks)
+    elsif url.match(/zip-codes\/\d+\?page=\d+/)
+      
 		end
 		#Possible actions are pagination_links, parse_links
 				
