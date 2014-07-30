@@ -252,6 +252,15 @@ class YelpSync
 
 		return movers
 	end
+  
+  def get_pagination_links(html, baselink)
+    first = 0
+    last = doc.css("div.graytext").text.match(/(\d+) - (\d+)/)[2].to_i
+    
+    links = (first..last).map do |num|
+      "#{baselink}?page=#{num}"
+    end
+  end
 
 	def dom(html)
 		doc = Nokogiri::HTML(html)
