@@ -20,4 +20,4 @@ ruby runner.rb
 ```
 
 ##Contributing
-Welcoming pull requests, issues and all forms on contributions.
+Welcoming pull requests, issues and any other form of contribution.
